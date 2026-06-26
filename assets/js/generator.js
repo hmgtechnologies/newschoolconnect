@@ -2156,6 +2156,38 @@ const ST={
   },
 
   /* ====================================================================
+     Academic Records: Student Record Card, Class Broadsheet, Subject Sheet
+     Generates printable records like the uploaded samples.
+     ==================================================================== */
+  pageAcademicRecords(cfg) {
+    const body = `
+      <div class="card" style="margin-bottom:16px">
+        <h3 style="margin-top:0">📄 Academic Print Records</h3>
+        <p style="color:var(--gray-600)">Generate printable records: individual student record card, class broadsheet and subject broadsheet. Data comes from Students, Results and Report Cards.</p>
+        <div class="grid grid-3">
+          <div class="form-group"><label>Record type</label><select class="form-select" id="ar-type"><option value="student">Student Record Card</option><option value="class">Class Broadsheet</option><option value="subject">Subject Broadsheet</option></select></div>
+          <div class="form-group"><label>Class</label><input class="form-input" id="ar-class" placeholder="JSS1"></div>
+          <div class="form-group"><label>Subject</label><input class="form-input" id="ar-subject" placeholder="Mathematics"></div>
+          <div class="form-group"><label>Term</label><input class="form-input" id="ar-term" placeholder="First Term"></div>
+          <div class="form-group"><label>Session</label><input class="form-input" id="ar-session" placeholder="2025/2026"></div>
+          <div class="form-group"><label>Student name / admission no</label><input class="form-input" id="ar-student" placeholder="optional"></div>
+        </div>
+        <button class="btn btn-primary" onclick="AR.generate()">Generate Record</button>
+        <button class="btn btn-outline" onclick="AR.print()">Print / Save PDF</button>
+      </div>
+      <div id="ar-output" class="card"><p style="color:var(--gray-500)">Choose filters and click Generate Record.</p></div>`;
+    return T.shell(cfg, 'Academic Records', body, { requireRole: 'staff' })
+      .replace('</body></html>', `<script>
+const AR={ rows:[],
+ async generate(){ if(!sb){toast('Database not configured','warning');return;} const type=document.getElementById('ar-type').value, cls=document.getElementById('ar-class').value, sub=document.getElementById('ar-subject').value, term=document.getElementById('ar-term').value, ses=document.getElementById('ar-session').value, stu=document.getElementById('ar-student').value; let q=sb.from('results').select('*').limit(2000); if(cls)q=q.eq('class',cls); if(sub&&type==='subject')q=q.eq('subject',sub); if(term)q=q.eq('term',term); if(ses)q=q.eq('session',ses); if(stu)q=q.ilike('student_name','%'+stu+'%'); const {data,error}=await q; if(error){toast(error.message,'danger');return;} this.rows=data||[]; document.getElementById('ar-output').innerHTML=this.html(type,cls,sub,term,ses); },
+ html(type,cls,sub,term,ses){ const sc=window.SCHOOL||{}; const title=type==='student'?'STUDENT RECORD CARD':(type==='subject'?'SUBJECT BROADSHEET':'CLASS BROADSHEET'); const rows=this.rows; const byStudent={}; rows.forEach(r=>{(byStudent[r.student_name]=byStudent[r.student_name]||[]).push(r);}); if(type==='student'){ const name=Object.keys(byStudent)[0]||''; return '<div class="print-record"><h2>'+esc(sc.name||'School')+'</h2><h3>'+title+'</h3><p>Class: '+esc(cls)+' · Term: '+esc(term)+' · Session: '+esc(ses)+'</p><h3>'+esc(name)+'</h3>'+this.table(rows,['subject','ca1','ca2','ca3','exam','total','grade','remark'])+'<p style="margin-top:24px">Attendance: ______ / ______ &nbsp; Conduct: __________ &nbsp; Principal Signature: __________</p></div>'; } if(type==='subject'){ return '<div class="print-record"><h2>'+esc(sc.name||'School')+'</h2><h3>'+title+' — '+esc(sub)+'</h3><p>Class: '+esc(cls)+' · Term: '+esc(term)+' · Session: '+esc(ses)+'</p>'+this.table(rows,['student_name','ca1','ca2','ca3','exam','total','grade','remark'])+'</div>'; } const names=Object.keys(byStudent).sort(); return '<div class="print-record"><h2>'+esc(sc.name||'School')+'</h2><h3>'+title+'</h3><p>Class: '+esc(cls)+' · Term: '+esc(term)+' · Session: '+esc(ses)+'</p><table><thead><tr><th>Student</th><th>Subjects</th><th>Total</th><th>Average</th><th>Position</th><th>Remark</th></tr></thead><tbody>'+names.map((n,i)=>{const rr=byStudent[n], t=rr.reduce((a,b)=>a+Number(b.total||((Number(b.ca1)||0)+(Number(b.ca2)||0)+(Number(b.ca3)||0)+(Number(b.exam)||0))),0), avg=rr.length?Math.round(t/rr.length*10)/10:0; return '<tr><td>'+esc(n)+'</td><td>'+rr.length+'</td><td>'+t+'</td><td>'+avg+'</td><td>'+(i+1)+'</td><td></td></tr>';}).join('')+'</tbody></table></div>'; },
+ table(rows,cols){ return '<table><thead><tr>'+cols.map(c=>'<th>'+esc(c.replace(/_/g,' '))+'</th>').join('')+'</tr></thead><tbody>'+rows.map(r=>'<tr>'+cols.map(c=>'<td>'+esc(r[c]??'')+'</td>').join('')+'</tr>').join('')+'</tbody></table>'; },
+ print(){ const el=document.getElementById('ar-output'); const w=window.open('','_blank'); w.document.write('<html><head><title>Academic Record</title><style>body{font-family:Arial,sans-serif;padding:20px;color:#111}.print-record{text-align:center}table{width:100%;border-collapse:collapse;margin-top:12px}th,td{border:1px solid #111;padding:5px;font-size:12px}th{background:#eee}@media print{button{display:none}}</style></head><body>'+el.innerHTML+'<script>window.onload=()=>window.print()<\\/script></body></html>'); w.document.close(); }
+};
+</script></body></html>`);
+  },
+
+  /* ====================================================================
      UPDATE V2 — DEVELOPER / BRAND BIO (issue 4)
      The last page of every client site: who built it and the HMG ecosystem.
      ==================================================================== */
